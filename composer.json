@@ -1,0 +1,24 @@
+{
+    "name": "wirefront/wplitecore",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "WireFront"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "firebase/php-jwt": "dev-main"
+    },
+    "autoload": {
+        "files": [
+        "functions.php"
+        ]
+    },
+    "_COMMENT": {
+        "autoload": "Run `composer dump-autoload` to regenerate the autoload files.",
+        "update": "Run `composer update` to update the dependencies.",
+        "install": "Run `composer install` to install the dependencies."
+    }
+}
