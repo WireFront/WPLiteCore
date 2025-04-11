@@ -133,15 +133,15 @@ if (!function_exists('wlc_get_api_data')) {
     function wlc_get_api_data($options = []) {
         $options = array_merge([
             'key' => null,
-            'url' => '', // Valid URL is required
-            'endpoint' => null, // Posible values: posts | pages | users | comments
-            'id' => null, // (Optional)Posible values: ID
-            'status' => 'publish', // (Optional)Posible values: publish | future | draft | pending | private
+            'api_url' => '', // Valid URL is required
+            'endpoint' => null, // Possible values: posts | pages | users | comments
+            'id' => null, // (Optional) Possible values: ID
+            'status' => 'publish', // (Optional) Possible values: publish | future | draft | pending | private
             'parameters' => ['per_page' => 10, 'page' => 1], // (Optional array), see WordPress API for available parameters
         ], $options);
 
         // Extract the URL and token from the options
-        $url = $options['url'];
+        $url = $options['api_url'];
         $endpoint = $options['endpoint'];
 
         // Generate the JWT token
@@ -174,12 +174,12 @@ if (!function_exists('wlc_get_api_data')) {
         // Check if the URL is valid
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             return [
-                true => false,
+                'result' => false,
                 'message' => 'Invalid URL'
             ];
         }
 
-        // Combined URL with endpoint if provided
+        // Combine URL with endpoint if provided
         if (!empty($endpoint)) {
             $url = rtrim($url, '/') . '/' . ltrim($endpoint, '/');
         }
@@ -188,11 +188,22 @@ if (!function_exists('wlc_get_api_data')) {
             $url = rtrim($url, '/') . '/' . ltrim($options['target'], '/');
         }
 
+        // Append the ID to the URL if provided
+        if (!empty($options['id'])) {
+            $url = rtrim($url, '/') . '/' . $options['id'];
+        }
+
         // Append query parameters to the URL if provided
         if (!empty($options['parameters']) && is_array($options['parameters'])) {
-            // Merge default parameters with provided ones
-            $options['parameters'] = array_merge(['per_page' => 10, 'page' => 1], $options['parameters']);
-            
+            // Check if 'slug' is present in the parameters
+            if (isset($options['parameters']['slug'])) {
+                // If 'slug' is present, ignore other parameters
+                $options['parameters'] = ['slug' => $options['parameters']['slug']];
+            } else {
+                // Merge default parameters with provided ones
+                $options['parameters'] = array_merge(['per_page' => 10, 'page' => 1], $options['parameters']);
+            }
+
             $queryString = http_build_query($options['parameters']);
             if (strpos($url, '?') !== false) {
                 $url .= '&' . $queryString;
@@ -225,7 +236,14 @@ if (!function_exists('wlc_get_api_data')) {
         curl_close($ch);
 
         // Decode the JSON response into an associative array
-        return json_decode($response, true);
+        $data = json_decode($response, true);
+
+        // If 'slug' is provided, return the first record as a single object
+        if ((isset($options['parameters']['slug']) || isset($options['id'])) && is_array($data) && count($data) === 1) {
+            return $data[0];
+        }
+
+        return $data;
 
     }
 }
@@ -250,7 +268,7 @@ if (!function_exists('wlc_post_comments')) {
 
         $public_options = array_merge([
             'key' => null,
-            'url' => null, // Valid URL is required
+            'api_url' => null, // Valid URL is required
             'post_id' => null, // ID of the post to fetch comments for
         ], $public_options);
 
@@ -270,7 +288,7 @@ if (!function_exists('wlc_post_comments')) {
         }
 
         // Check if URL and endpoint are provided
-        if (empty($options['url']) && empty($options['endpoint'])) {
+        if (empty($options['api_url']) && empty($options['endpoint'])) {
             return [
                 'result' => false,
                 'message' => 'URL or endpoint is required'
@@ -288,7 +306,7 @@ if (!function_exists('wlc_post_comments')) {
         // Call function to get the data from the API
         $comments = wlc_get_api_data([
             'key' => $options['key'],
-            'url' => $options['url'],
+            'api_url' => $options['api_url'],
             'endpoint' => $options['endpoint'],
             'parameters' => ['post' => $options['post_id']],
         ]);
@@ -341,7 +359,7 @@ if (!function_exists('wlc_featured_image')) {
 
         $public_options = array_merge([
             'key' => null,
-            'url' => null, // Valid URL is required
+            'api_url' => null, // Valid URL is required
             'post_id' => null, // ID of the post to fetch the featured image for
             'size' => 'medium', // Default image size
         ], $public_options);
@@ -362,10 +380,10 @@ if (!function_exists('wlc_featured_image')) {
         }
 
         // Check if URL and endpoint are provided
-        if (empty($options['url']) && empty($options['endpoint'])) {
+        if (empty($options['api_url']) && empty($options['endpoint'])) {
             return [
                 'result' => false,
-                'message' => 'URL or endpoint is required'
+                'message' => 'API URL or endpoint is required'
             ];
         }
 
@@ -380,7 +398,7 @@ if (!function_exists('wlc_featured_image')) {
         // Call function to get the post data from the API
         $post_data = wlc_get_api_data([
             'key' => $options['key'],
-            'url' => $options['url'],
+            'api_url' => $options['api_url'],
             'endpoint' => 'posts',
             'parameters' => ['include' => $options['post_id']],
         ]);
@@ -399,7 +417,7 @@ if (!function_exists('wlc_featured_image')) {
         // Call function to get the featured image data from the API
         $media_data = wlc_get_api_data([
             'key' => $options['key'],
-            'url' => $options['url'],
+            'api_url' => $options['api_url'],
             'endpoint' => $options['endpoint'],
             'parameters' => ['include' => $featured_media_id],
         ]);
@@ -438,31 +456,16 @@ if (!function_exists('wlc_featured_image')) {
  **/
 /* -------------------------------------------------------------------------- */
 if (!function_exists('wlc_single_post')) {
-    function wlc_single_post($public_options = []) {
+    function wlc_single_post($options = []) {
 
-        // Ensure $public_options is always an array
-        if (!is_array($public_options)) {
-            $public_options = [];
-        }
-
-        // Declare variables
-        $private_options = [];
-        $options = [];
-
-        $public_options = array_merge([
+        $options = array_merge([
             'key' => null,
-            'url' => null, // Valid URL is required
+            'api_url' => null, // Valid URL is required
+            'endpoint' => 'posts', // Possible values: posts | pages
             'slug' => null, // Possible values: post slug
             'id' => null, // (Optional) Possible values: ID
             'media_size' => 'medium', // (Optional) Default image size
-        ], $public_options);
-        
-        // Add extra options hidden in the main options
-        $private_options = [
-            'endpoint' => 'posts'
-        ];
-
-        $options = array_merge($public_options, $private_options);
+        ], $options);
 
         // Check if key is provided
         if (empty($options['key'])) {
@@ -473,50 +476,76 @@ if (!function_exists('wlc_single_post')) {
         }
 
         // Check if URL and endpoint are provided
-        if (empty($options['url']) && empty($options['endpoint'])) {
+        if (empty($options['api_url']) && empty($options['endpoint'])) {
             return [
                 'result' => false,
-                'message' => 'URL or endpoint is required'
+                'message' => 'API URL or endpoint is required'
             ];
         }
 
         // Call function to get the data from the API
         $posts = wlc_get_api_data([
             'key' => $options['key'],
-            'url' => $options['url'],
+            'api_url' => $options['api_url'],
             'endpoint' => $options['endpoint'],
+            'id' => isset($options['id']) && !is_null($options['id']) ? $options['id'] : null,
             'parameters' => ['slug' => $options['slug']],
         ]);
 
+        // 
+        if( empty($posts) || !is_array($posts) ) {
+            return [
+                'result' => false,
+                'message' => 'Post not found for the given slug'
+            ];
+        }
+
+        // Check if the post is found for the given ID
+        if (isset($posts['code']) && ($posts['code'] == 'rest_post_invalid_page_id' || $posts['code'] == 'rest_post_invalid_id')) {
+            return [
+            'result' => false,
+            'message' => 'Post not found for the given ID'
+            ];
+        }
+
+        // Check both slug and ID are not provided
+        if (empty($options['slug']) && empty($options['id'])) {
+            return [
+                'result' => false,
+                'message' => 'Slug or ID is required'
+            ];
+        }
+
         $comments = wlc_post_comments([
             'key' => $options['key'],
-            'url' => $options['url'],
-            'post_id' => $posts[0]['id'],
+            'api_url' => $options['api_url'],
+            'post_id' => $posts['id'],
         ]);
 
         $featured_image = wlc_featured_image([
             'key' => $options['key'],
-            'url' => $options['url'],
-            'post_id' => $posts[0]['id'],
+            'api_url' => $options['api_url'],
+            'post_id' => $posts['id'],
             'size' => $options['media_size'],
         ]);
 
         $post_data = [
-            'title' => $posts[0]['title']['rendered'],
-            'content' => $posts[0]['content']['rendered'],
-            'excerpt' => $posts[0]['excerpt']['rendered'],
-            'date' => $posts[0]['date'],
-            'author' => $posts[0]['author'],
-            'featured_media' => $posts[0]['featured_media'],
-            'status' => $posts[0]['status'],
-            'id' => $posts[0]['id'],
-            'categories' => $posts[0]['categories'],
-            'tags' => $posts[0]['tags'],
+            'title' => $posts['title']['rendered'],
+            'content' => $posts['content']['rendered'],
+            'excerpt' => $posts['excerpt']['rendered'],
+            'date' => $posts['date'],
+            'author' => $posts['author'],
+            'featured_media' => $posts['featured_media'],
+            'status' => $posts['status'],
+            'id' => $posts['id'],
+            'categories' => $posts['categories'],
+            'tags' => $posts['tags'],
             'comments' => $comments,
             'featured_image' => $featured_image
         ];
 
         return $post_data;
+
 
     }
 }
