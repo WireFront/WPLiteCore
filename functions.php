@@ -461,7 +461,7 @@ if (!function_exists('wlc_single_post')) {
         $options = array_merge([
             'key' => null,
             'api_url' => null, // Valid URL is required
-            'endpoint' => 'posts', // Possible values: posts | pages
+            'type' => 'posts', // Possible values: posts | pages
             'slug' => null, // Possible values: post slug
             'id' => null, // (Optional) Possible values: ID
             'media_size' => 'medium', // (Optional) Default image size
@@ -487,7 +487,7 @@ if (!function_exists('wlc_single_post')) {
         $posts = wlc_get_api_data([
             'key' => $options['key'],
             'api_url' => $options['api_url'],
-            'endpoint' => $options['endpoint'],
+            'endpoint' => $options['type'],
             'id' => isset($options['id']) && !is_null($options['id']) ? $options['id'] : null,
             'parameters' => ['slug' => $options['slug']],
         ]);
@@ -538,14 +538,13 @@ if (!function_exists('wlc_single_post')) {
             'featured_media' => $posts['featured_media'],
             'status' => $posts['status'],
             'id' => $posts['id'],
-            'categories' => $posts['categories'],
-            'tags' => $posts['tags'],
+            'categories' => $posts['categories'] ?? [], // Default to an empty array if not set
+            'tags' => $posts['tags'] ?? [],           // Default to an empty array if not set
             'comments' => $comments,
             'featured_image' => $featured_image
         ];
 
         return $post_data;
-
 
     }
 }
