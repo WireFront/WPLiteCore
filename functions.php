@@ -135,7 +135,6 @@ if (!function_exists('wlc_get_api_data')) {
             'key' => null,
             'api_url' => '', // Valid URL is required
             'endpoint' => null, // Possible values: posts | pages | users | comments
-            'id' => null, // (Optional) Possible values: ID
             'status' => 'publish', // (Optional) Possible values: publish | future | draft | pending | private
             'parameters' => ['per_page' => 10, 'page' => 1], // (Optional array), see WordPress API for available parameters
         ], $options);
@@ -221,6 +220,9 @@ if (!function_exists('wlc_get_api_data')) {
         // Set options to return the response as a string
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
+        // Include headers in the output
+        curl_setopt($ch, CURLOPT_HEADER, true);
+
         // Add Authorization Bearer Token if provided
         if ($token) {
             $headers = [
@@ -232,18 +234,54 @@ if (!function_exists('wlc_get_api_data')) {
         // Execute the cURL request and store the response
         $response = curl_exec($ch);
 
+        // Separate the headers and the body
+        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        
+        // Extracts the headers from the HTTP response using the header size.
+        $headers = substr($response, 0, $header_size);
+        
+        // Extracts the body from the HTTP response using the header size.
+        $body = substr($response, $header_size);
+
+        // Parse the headers to extract X-WP-Total and X-WP-TotalPages
+        $x_wp_total = null;
+        $x_wp_total_pages = null;
+        foreach (explode("\r\n", $headers) as $header) {
+            if (stripos($header, 'X-WP-Total:') === 0) {
+                $x_wp_total = trim(substr($header, strlen('X-WP-Total:')));
+            }
+            if (stripos($header, 'X-WP-TotalPages:') === 0) {
+                $x_wp_total_pages = trim(substr($header, strlen('X-WP-TotalPages:')));
+            }
+        }
+
         // Close the cURL session
         curl_close($ch);
 
         // Decode the JSON response into an associative array
-        $data = json_decode($response, true);
+        $items = json_decode($body, true);
+
+        // Store the extracted header values in variables
+        $total_posts = $x_wp_total;
+        $total_pages = $x_wp_total_pages;
 
         // If 'slug' is provided, return the first record as a single object
-        if ((isset($options['parameters']['slug']) || isset($options['id'])) && is_array($data) && count($data) === 1) {
-            return $data[0];
+        if ((isset($options['parameters']['slug']) || isset($options['id'])) && is_array($items) && count($items) === 1) {
+            $items = $items[0];
         }
 
-        return $data;
+        // Add the total posts and pages to the response
+        $data['total_posts'] = $total_posts;
+        $data['total_pages'] = $total_pages;
+
+        $output = [
+            'result' => !empty($items),
+            'items' => $items,
+            'total_posts' => $total_posts,
+            'total_pages' => $total_pages
+        ];
+
+        return $output;
 
     }
 }
@@ -254,89 +292,86 @@ if (!function_exists('wlc_get_api_data')) {
  * This function retrieves comments for a specific post from a specified URL and decodes it into an array.
  **/
 /* -------------------------------------------------------------------------- */
-if (!function_exists('wlc_post_comments')) {
-    function wlc_post_comments($public_options = []) {
+function wlc_post_comments($public_options = []) {
+    // Ensure $public_options is always an array
+    if (!is_array($public_options)) {
+        $public_options = [];
+    }
 
-        // Ensure $public_options is always an array
-        if (!is_array($public_options)) {
-            $public_options = [];
-        }
+    // Declare variables
+    $private_options = [];
+    $options = [];
 
-        // Declare variables
-        $private_options = [];
-        $options = [];
+    $public_options = array_merge([
+        'key' => null,
+        'api_url' => null, // Valid URL is required
+        'post_id' => null, // ID of the post to fetch comments for
+    ], $public_options);
 
-        $public_options = array_merge([
-            'key' => null,
-            'api_url' => null, // Valid URL is required
-            'post_id' => null, // ID of the post to fetch comments for
-        ], $public_options);
+    // Add extra options hidden in the main options
+    $private_options = [
+        'endpoint' => 'comments'
+    ];
 
-        // Add extra options hidden in the main options
-        $private_options = [
-            'endpoint' => 'comments'
-        ];
+    $options = array_merge($public_options, $private_options);
 
-        $options = array_merge($public_options, $private_options);
-
-        // Check if key is provided
-        if (empty($options['key'])) {
-            return [
-                'result' => false,
-                'message' => 'Key is required'
-            ];
-        }
-
-        // Check if URL and endpoint are provided
-        if (empty($options['api_url']) && empty($options['endpoint'])) {
-            return [
-                'result' => false,
-                'message' => 'URL or endpoint is required'
-            ];
-        }
-
-        // Check if post_id is provided
-        if (empty($options['post_id'])) {
-            return [
-                'result' => false,
-                'message' => 'Post ID is required'
-            ];
-        }
-
-        // Call function to get the data from the API
-        $comments = wlc_get_api_data([
-            'key' => $options['key'],
-            'api_url' => $options['api_url'],
-            'endpoint' => $options['endpoint'],
-            'parameters' => ['post' => $options['post_id']],
-        ]);
-
-        // Check if comments are retrieved successfully
-        if (empty($comments) || !is_array($comments)) {
-            return [
-                'result' => false,
-                'message' => 'No comments found or an error occurred'
-            ];
-        }
-
-        // Format the comments data
-        $comments_data = array_map(function ($comment) {
-            return [
-                'id' => $comment['id'],
-                'author_name' => $comment['author_name'],
-                'author_avatar' => $comment['author_avatar_urls']['96'],
-                'content' => $comment['content']['rendered'],
-                'date' => $comment['date'],
-                'post' => $comment['post'],
-                'status' => $comment['status']
-            ];
-        }, $comments);
-
+    // Check if key is provided
+    if (empty($options['key'])) {
         return [
-            'result' => true,
-            'items' => $comments_data
+            'result' => false,
+            'message' => 'Key is required'
         ];
     }
+
+    // Check if URL and endpoint are provided
+    if (empty($options['api_url']) && empty($options['endpoint'])) {
+        return [
+            'result' => false,
+            'message' => 'URL or endpoint is required'
+        ];
+    }
+
+    // Check if post_id is provided
+    if (empty($options['post_id'])) {
+        return [
+            'result' => false,
+            'message' => 'Post ID is required'
+        ];
+    }
+
+    // Call function to get the data from the API
+    $comments = wlc_get_api_data([
+        'key' => $options['key'],
+        'api_url' => $options['api_url'],
+        'endpoint' => $options['endpoint'],
+        'parameters' => ['post' => $options['post_id']],
+    ]);
+
+    // Validate the response
+    if (empty($comments) || !is_array($comments) || empty($comments['items'])) {
+        return [
+            'result' => false,
+            'message' => 'No comments found or an error occurred'
+        ];
+    }
+
+    // Format the comments data
+    $comments_data = array_map(function ($comment) {
+        return [
+            'id' => $comment['id'] ?? null,
+            'author_name' => $comment['author_name'] ?? null,
+            'author_avatar' => $comment['author_avatar_urls']['96'] ?? null,
+            'content' => $comment['content']['rendered'] ?? null,
+            'date' => $comment['date'] ?? null,
+            'post' => $comment['post'] ?? null,
+            'status' => $comment['status'] ?? null
+        ];
+    }, $comments['items']);
+
+    return [
+        'result' => true,
+        'items' => $comments_data
+    ];
 }
 
 
@@ -360,8 +395,9 @@ if (!function_exists('wlc_featured_image')) {
         $public_options = array_merge([
             'key' => null,
             'api_url' => null, // Valid URL is required
-            'post_id' => null, // ID of the post to fetch the featured image for
+            'attachment_id' => 0, // ID of the post to fetch the featured image for
             'size' => 'medium', // Default image size
+            'type' => 'posts', // Possible values: posts | pages | other custom post types
         ], $public_options);
 
         // Add extra options hidden in the main options
@@ -369,7 +405,12 @@ if (!function_exists('wlc_featured_image')) {
             'endpoint' => 'media'
         ];
 
+        // Merge public and private options
         $options = array_merge($public_options, $private_options);
+
+        // Generate the JWT token
+        $token = generate_jwt(['key' => $options['key']]);
+        $token = $token['token'];
 
         // Check if key is provided
         if (empty($options['key'])) {
@@ -387,65 +428,130 @@ if (!function_exists('wlc_featured_image')) {
             ];
         }
 
-        // Check if post_id is provided
-        if (empty($options['post_id'])) {
+        // Check if attachment_id is provided
+        if (empty($options['attachment_id'])) {
             return [
                 'result' => false,
-                'message' => 'Post ID is required'
+                'message' => 'Attachment ID is required'
             ];
         }
 
-        // Call function to get the post data from the API
-        $post_data = wlc_get_api_data([
+        // Set URL and endpoint
+        $url = $options['api_url'] . 'media/' . $options['attachment_id'];
+
+        // Initialize a cURL session
+        $ch = curl_init();
+
+        // Set the URL to fetch
+        curl_setopt($ch, CURLOPT_URL, $url);
+
+        // Set options to return the response as a string
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        // Add Authorization Bearer Token if provided
+        if ($token) {
+            $headers = [
+                'Authorization: Bearer ' . $token
+            ];
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
+
+        // Execute the cURL request and store the response
+        $response = curl_exec($ch);
+
+        // Close the cURL session
+        curl_close($ch);
+
+        // Decode the JSON response into an associative array
+        $data = json_decode($response, true);
+
+
+        if (empty($data['media_details'])) {
+            return [
+            'result' => false,
+            'message' => 'Media with ID ' . $options['attachment_id'] . ' not found'
+            ];
+        }
+
+        $output = [
+            'result' => true,
+            'url' => $data['media_details']['sizes'][$options['size']]['source_url'] ?? $data['media_details']['sizes']['medium']['source_url'],
+        ];
+
+        return $output;
+        
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/** GET CATEGORIES
+ * This function retrieves categories from a specified URL and decodes it into an array.
+ **/
+if( !function_exists('wlc_get_categories') ) {
+    
+    function wlc_get_category($options = []) {
+        $options = array_merge([
+            'key' => null,
+            'api_url' => null, // Valid URL is required
+            'cat_id' => null, // ID of the category to fetch
+        ], $options);
+
+        // Check if key is provided
+        if (empty($options['key'])) {
+            return [
+                'result' => false,
+                'message' => 'Key is required'
+            ];
+        }
+
+        // Check if URL and endpoint are provided
+        if (empty($options['api_url']) && empty($options['endpoint'])) {
+            return [
+                'result' => false,
+                'message' => 'API URL or endpoint is required'
+            ];
+        }
+
+        // Call function to get the data from the API
+        $categories = wlc_get_api_data([
             'key' => $options['key'],
             'api_url' => $options['api_url'],
-            'endpoint' => 'posts',
-            'parameters' => ['include' => $options['post_id']],
+            'endpoint' => 'categories',
+            'parameters' => ['id' => $options['cat_id']],
         ]);
 
-        // Check if the post data is retrieved successfully
-        if (empty($post_data) || !is_array($post_data)) {
+        // Validate the response
+        if (empty($categories) || !is_array($categories) || empty($categories['items'])) {
             return [
                 'result' => false,
-                'message' => 'Post not found or an error occurred'
+                'message' => 'No categories found or an error occurred'
             ];
         }
 
-        // Get the featured media ID from the post data
-        $featured_media_id = $post_data[0]['featured_media'];
-
-        // Call function to get the featured image data from the API
-        $media_data = wlc_get_api_data([
-            'key' => $options['key'],
-            'api_url' => $options['api_url'],
-            'endpoint' => $options['endpoint'],
-            'parameters' => ['include' => $featured_media_id],
-        ]);
-
-        // Check if the media data is retrieved successfully
-        if (empty($media_data) || !is_array($media_data)) {
-            return [
-                'result' => false,
-                'message' => 'Featured image not found or an error occurred'
-            ];
-        }
-
-        // Get the URL of the specified image size
-        $image_url = $media_data[0]['media_details']['sizes'][$options['size']]['source_url'] ?? null;
-
-        // Check if the image URL is available
-        if (empty($image_url)) {
-            return [
-                'result' => false,
-                'message' => 'Image size not found'
-            ];
+        // Loop through the categories dynamically
+        $items = [];
+        if (!empty($categories['items']) && is_array($categories['items'])) {
+            foreach ($categories['items'] as $category) {
+                $items[] = [
+                    'id' => $category['id'] ?? null,
+                    'name' => $category['name'] ?? null,
+                    'slug' => $category['slug'] ?? null,
+                    'description' => $category['description'] ?? null,
+                    'count' => $category['count'] ?? null,
+                    'parent' => $category['parent'] ?? null,
+                    'link' => $category['link'] ?? null,
+                    'taxonomy' => $category['taxonomy'] ?? null
+                ];
+            }
         }
 
         return [
             'result' => true,
-            'image_url' => $image_url
+            'items' => $items
         ];
     }
+
 }
 
 
@@ -463,7 +569,6 @@ if (!function_exists('wlc_single_post')) {
             'api_url' => null, // Valid URL is required
             'type' => 'posts', // Possible values: posts | pages
             'slug' => null, // Possible values: post slug
-            'id' => null, // (Optional) Possible values: ID
             'media_size' => 'medium', // (Optional) Default image size
         ], $options);
 
@@ -492,56 +597,77 @@ if (!function_exists('wlc_single_post')) {
             'parameters' => ['slug' => $options['slug']],
         ]);
 
-        // 
-        if( empty($posts) || !is_array($posts) ) {
-            return [
-                'result' => false,
-                'message' => 'Post not found for the given slug'
-            ];
+        // Check if the posts data is retrieved successfully
+        if (empty($posts) || !is_array($posts) || (isset($posts['result']) && $posts['result'] == false) || (isset($posts['total_posts']) && $posts['total_posts'] === null)) {
+            if ($options['type'] === 'pages') {
+                return [
+                    'result' => false,
+                    'message' => 'Page not found for the given ID or slug',
+                    'data' => $posts
+                ];
+            } else {
+                return [
+                    'result' => false,
+                    'message' => ucfirst($options['type']) . ' not found for the given ID or slug',
+                    'data' => $posts
+                ];
+            }
         }
 
-        // Check if the post is found for the given ID
-        if (isset($posts['code']) && ($posts['code'] == 'rest_post_invalid_page_id' || $posts['code'] == 'rest_post_invalid_id')) {
-            return [
-            'result' => false,
-            'message' => 'Post not found for the given ID'
-            ];
+        // Validate if 'items' exists and is an array
+        if (!isset($posts['items']) || !is_array($posts['items'])) {
+            if ($options['type'] === 'pages') {
+                return [
+                    'result' => false,
+                    'message' => 'Page not found for the given ID or slug',
+                    'data' => $posts
+                ];
+            } else {
+                return [
+                    'result' => false,
+                    'message' => ucfirst($options['type']) . ' not found for the given ID or slug',
+                    'data' => $posts
+                ];
+            }
         }
 
-        // Check both slug and ID are not provided
-        if (empty($options['slug']) && empty($options['id'])) {
-            return [
-                'result' => false,
-                'message' => 'Slug or ID is required'
-            ];
+        // Post category using wlc_get_category()
+        if (isset($posts['items']['categories']) && is_array($posts['items']['categories'])) {
+            foreach ($posts['items']['categories'] as $cat_id) {
+                $category = wlc_get_category([
+                    'key' => $options['key'],
+                    'api_url' => $options['api_url'],
+                    'cat_id' => $cat_id,
+                ]);
+                if ($category['result'] == true) {
+                    $posts['items']['categories'][$cat_id] = $category['items'];
+                }
+            }
         }
 
-        $comments = wlc_post_comments([
-            'key' => $options['key'],
-            'api_url' => $options['api_url'],
-            'post_id' => $posts['id'],
-        ]);
-
-        $featured_image = wlc_featured_image([
-            'key' => $options['key'],
-            'api_url' => $options['api_url'],
-            'post_id' => $posts['id'],
-            'size' => $options['media_size'],
-        ]);
-
+        // Safely access keys from $posts['items']
         $post_data = [
-            'title' => $posts['title']['rendered'],
-            'content' => $posts['content']['rendered'],
-            'excerpt' => $posts['excerpt']['rendered'],
-            'date' => $posts['date'],
-            'author' => $posts['author'],
-            'featured_media' => $posts['featured_media'],
-            'status' => $posts['status'],
-            'id' => $posts['id'],
-            'categories' => $posts['categories'] ?? [], // Default to an empty array if not set
-            'tags' => $posts['tags'] ?? [],           // Default to an empty array if not set
-            'comments' => $comments,
-            'featured_image' => $featured_image
+            'title' => $posts['items']['title']['rendered'] ?? null,
+            'content' => $posts['items']['content']['rendered'] ?? null,
+            'excerpt' => $posts['items']['excerpt']['rendered'] ?? null,
+            'date' => $posts['items']['date'] ?? null,
+            'author' => $posts['items']['author'] ?? null,
+            'featured_media' => $posts['items']['featured_media'] ?? null,
+            'status' => $posts['items']['status'] ?? null,
+            'id' => $posts['items']['id'] ?? null,
+            'categories' => $category['items'] ?? [],
+            'tags' => $posts['items']['tags'] ?? [],
+            'comments' => wlc_post_comments([
+                'key' => $options['key'],
+                'api_url' => $options['api_url'],
+                'post_id' => $posts['items']['id'] ?? null,
+            ]),
+            'featured_image' => wlc_featured_image([
+                'key' => $options['key'],
+                'api_url' => $options['api_url'],
+                'attachment_id' => $posts['items']['featured_media'] ?? null,
+                'size' => $options['media_size']
+            ])
         ];
 
         return $post_data;
