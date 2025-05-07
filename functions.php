@@ -677,4 +677,128 @@ if (!function_exists('wlc_single_post')) {
 
 
 
+/* -------------------------------------------------------------------------- */
+/** CREATE REQUIREMENTS
+ * This function creates requirements for the project, including:
+ * - .htaccess file
+ * - routes.php file
+ **/
+/* -------------------------------------------------------------------------- */
+function create_requirements() {
+    // Define the file paths for the .htaccess, routes.php, and 404.php files in the current working directory
+    $htaccessPath = getcwd() . '/.htaccess';
+    $routesPath = getcwd() . '/routes.php';
+    $notFoundPath = getcwd() . '/404.php';
 
+    // Define the contents of the .htaccess file
+    $htaccessContent = <<<HTACCESS
+RewriteEngine On
+RewriteCond %{REQUEST_URI}  !(\.png|\.jpg|\.webp|\.gif|\.jpeg|\.zip|\.css|\.svg|\.js|\.pdf)$
+RewriteRule (.*) routes.php [QSA,L]
+HTACCESS;
+
+    // Define the contents of the routes.php file
+    $routesContent = <<<PHP
+<?php
+
+// Require the autoload file for the project
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Static GET
+get('/', 'views/index.php');
+
+// Dynamic GET. Example with 1 variable
+// The \$id will be available in user.php
+get('/user/\$id', 'views/user');
+
+// Dynamic GET. Example with 2 variables
+// The \$name will be available in full_name.php
+// The \$last_name will be available in full_name.php
+// In the browser point to: localhost/user/X/Y
+get('/user/\$name/\$last_name', 'views/full_name.php');
+
+// Dynamic GET. Example with 2 variables with static
+// In the URL -> http://localhost/product/shoes/color/blue
+// The \$type will be available in product.php
+// The \$color will be available in product.php
+get('/product/\$type/color/\$color', 'product.php');
+
+// A route with a callback
+get('/callback', function(){
+  echo 'Callback executed';
+});
+
+// A route with a callback passing a variable
+// To run this route, in the browser type:
+// http://localhost/user/A
+get('/callback/\$name', function(\$name){
+  echo "Callback executed. The name is \$name";
+});
+
+// Route where the query string happens right after a forward slash
+get('/product', '');
+
+// A route with a callback passing 2 variables
+// To run this route, in the browser type:
+// http://localhost/callback/A/B
+get('/callback/\$name/\$last_name', function(\$name, \$last_name){
+  echo "Callback executed. The full name is \$name \$last_name";
+});
+
+// Route that will use POST data
+post('/user', '/api/save_user');
+
+// For GET or POST
+// The 404.php which is inside the views folder will be called
+// The 404.php has access to \$_GET and \$_POST
+any('/404','views/404.php');
+PHP;
+
+    // Define the contents of the 404.php file
+    $notFoundContent = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found</title>
+</head>
+<body>
+    <h1>404 - Page Not Found</h1>
+    <p>The page you are looking for does not exist.</p>
+</body>
+</html>
+HTML;
+
+    // Attempt to create or overwrite the files
+    try {
+        if (file_put_contents($htaccessPath, $htaccessContent) === false) {
+            throw new Exception('Failed to create .htaccess file at ' . $htaccessPath);
+        }
+
+        if (file_put_contents($routesPath, $routesContent) === false) {
+            throw new Exception('Failed to create routes.php file at ' . $routesPath);
+        }
+
+        if (file_put_contents($notFoundPath, $notFoundContent) === false) {
+            throw new Exception('Failed to create 404.php file at ' . $notFoundPath);
+        }
+
+        return [
+            'result' => true,
+            'message' => '.htaccess, routes.php, and 404.php files created successfully at ' . getcwd()
+        ];
+    } catch (Exception $e) {
+        return [
+            'result' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
+
+function test(){
+
+    echo "Test function called!";
+
+}
