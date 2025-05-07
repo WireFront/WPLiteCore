@@ -13,7 +13,8 @@
     },
     "autoload": {
         "files": [
-        "functions.php"
+            "functions.php",
+            "router.php"
         ]
     },
     "_COMMENT": {
