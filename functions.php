@@ -107,16 +107,18 @@ if (!function_exists('wlc_footer')) {
 **/
 /* -------------------------------------------------------------------------- */
 if (!function_exists('wlc_get_url')) {
-    function wlc_get_url() {
+    function wlc_get_url($subFolder = '') {
         // Get the current URL
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
         $host = $_SERVER['HTTP_HOST'];
-        $path = dirname($_SERVER['REQUEST_URI']);
+        $path = rtrim($_SERVER['REQUEST_URI'], '/');
 
-        // Ensure the path ends with a slash
-        $path = rtrim($path, '/');
+        // Append the subfolder if provided
+        if (!empty($subFolder)) {
+            $path .= '/' . ltrim($subFolder, '/');
+        }
 
-        return $protocol . $host . $path;
+        return $protocol . $host . $path . '/';
     }
 }
 
@@ -684,109 +686,111 @@ if (!function_exists('wlc_single_post')) {
  * - routes.php file
  **/
 /* -------------------------------------------------------------------------- */
-function create_requirements() {
+function create_requirements($permissions = 755) {
+    // Validate the permissions parameter
+    if (!is_int($permissions) || strlen((string)$permissions) > 3 || preg_match('/[^0-7]/', (string)$permissions)) {
+
+        // Return an error message
+        return [
+            'result' => false,
+            'message' => 'Invalid permissions value. It must be an integer with up to 3 digits, each between 0 and 7.'
+        ];
+
+    }
+
     // Define the file paths for the .htaccess, routes.php, and 404.php files in the current working directory
     $htaccessPath = getcwd() . '/.htaccess';
     $routesPath = getcwd() . '/routes.php';
     $notFoundPath = getcwd() . '/404.php';
+    $configPath = getcwd() . '/wlc_config.php';
 
-    // Define the contents of the .htaccess file
-    $htaccessContent = <<<HTACCESS
-RewriteEngine On
-RewriteCond %{REQUEST_URI}  !(\.png|\.jpg|\.webp|\.gif|\.jpeg|\.zip|\.css|\.svg|\.js|\.pdf)$
-RewriteRule (.*) routes.php [QSA,L]
-HTACCESS;
+    // Define the source directory for setup files
+    $setupFilesDir = __DIR__ . '/setup-files';
 
-    // Define the contents of the routes.php file
-    $routesContent = <<<PHP
-<?php
-
-// Require the autoload file for the project
-require_once __DIR__ . '/vendor/autoload.php';
-
-// Static GET
-get('/', 'views/index.php');
-
-// Dynamic GET. Example with 1 variable
-// The \$id will be available in user.php
-get('/user/\$id', 'views/user');
-
-// Dynamic GET. Example with 2 variables
-// The \$name will be available in full_name.php
-// The \$last_name will be available in full_name.php
-// In the browser point to: localhost/user/X/Y
-get('/user/\$name/\$last_name', 'views/full_name.php');
-
-// Dynamic GET. Example with 2 variables with static
-// In the URL -> http://localhost/product/shoes/color/blue
-// The \$type will be available in product.php
-// The \$color will be available in product.php
-get('/product/\$type/color/\$color', 'product.php');
-
-// A route with a callback
-get('/callback', function(){
-  echo 'Callback executed';
-});
-
-// A route with a callback passing a variable
-// To run this route, in the browser type:
-// http://localhost/user/A
-get('/callback/\$name', function(\$name){
-  echo "Callback executed. The name is \$name";
-});
-
-// Route where the query string happens right after a forward slash
-get('/product', '');
-
-// A route with a callback passing 2 variables
-// To run this route, in the browser type:
-// http://localhost/callback/A/B
-get('/callback/\$name/\$last_name', function(\$name, \$last_name){
-  echo "Callback executed. The full name is \$name \$last_name";
-});
-
-// Route that will use POST data
-post('/user', '/api/save_user');
-
-// For GET or POST
-// The 404.php which is inside the views folder will be called
-// The 404.php has access to \$_GET and \$_POST
-any('/404','views/404.php');
-PHP;
-
-    // Define the contents of the 404.php file
-    $notFoundContent = <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 Not Found</title>
-</head>
-<body>
-    <h1>404 - Page Not Found</h1>
-    <p>The page you are looking for does not exist.</p>
-</body>
-</html>
-HTML;
+    // Define the source file paths
+    $htaccessSource = $setupFilesDir . '/.htaccess';
+    $routesSource = $setupFilesDir . '/routes.php';
+    $notFoundSource = $setupFilesDir . '/404.php';
+    $configSource = $setupFilesDir . '/wlc_config.php';
 
     // Attempt to create or overwrite the files
     try {
-        if (file_put_contents($htaccessPath, $htaccessContent) === false) {
-            throw new Exception('Failed to create .htaccess file at ' . $htaccessPath);
+        // Check if the setup-files directory exists
+        if (!is_dir($setupFilesDir)) {
+
+            // Return an error message
+            return [
+                'result' => false,
+                'message' => 'Setup files directory does not exist: ' . $setupFilesDir
+            ];
+
+            // Exit the script
+            exit();
+
         }
 
-        if (file_put_contents($routesPath, $routesContent) === false) {
-            throw new Exception('Failed to create routes.php file at ' . $routesPath);
+        // Copy the .htaccess file
+        if (!file_exists($htaccessSource) || file_put_contents($htaccessPath, file_get_contents($htaccessSource)) === false) {
+
+            // Return an error message
+            return [
+                'result' => false,
+                'message' => 'Failed to create .htaccess file from source: ' . $htaccessSource
+            ];
+
+            // Exit the script
+            exit();
+
+        }
+        chmod($htaccessPath, octdec($permissions));
+
+        // Copy the routes.php file
+        if (!file_exists($routesSource) || file_put_contents($routesPath, file_get_contents($routesSource)) === false) {
+
+            // Return an error message
+            return [
+                'result' => false,
+                'message' => 'Failed to create routes.php file from source: ' . $routesSource
+            ];
+
+            // Exit the script
+            exit();
+        }
+        chmod($routesPath, octdec($permissions));
+
+        // Copy the 404.php file
+        if (!file_exists($notFoundSource) || file_put_contents($notFoundPath, file_get_contents($notFoundSource)) === false) {
+            
+            // Return an error message
+            return [
+                'result' => false,
+                'message' => 'Failed to create 404.php file from source: ' . $notFoundSource
+            ];
+
+            // Exit the script
+            exit();
+        }
+        chmod($notFoundPath, octdec($permissions));
+
+        // Copy the wlc_config.php file
+        if (!file_exists($configSource) || file_put_contents($configPath, file_get_contents($configSource)) === false) {
+            
+            // Return an error message
+            return [
+                'result' => false,
+                'message' => 'Failed to create wlc_config.php.php file from source: ' . $configSource
+            ];
+
+            // Exit the script
+            exit();
         }
 
-        if (file_put_contents($notFoundPath, $notFoundContent) === false) {
-            throw new Exception('Failed to create 404.php file at ' . $notFoundPath);
-        }
+        // Set the permissions for the files for this file/directory
+        chmod($configPath, octdec($permissions));
 
         return [
             'result' => true,
-            'message' => '.htaccess, routes.php, and 404.php files created successfully at ' . getcwd()
+            'message' => '.htaccess, routes.php, 404.php, and wlc_config.php files created successfully with permissions ' . $permissions . ' at ' . __DIR__
         ];
     } catch (Exception $e) {
         return [
@@ -794,11 +798,4 @@ HTML;
             'message' => $e->getMessage()
         ];
     }
-}
-
-
-function test(){
-
-    echo "Test function called!";
-
 }
