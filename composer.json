@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "firebase/php-jwt": "dev-main"
+        "firebase/php-jwt": "^6.0"
     },
     "autoload": {
         "psr-4": {
