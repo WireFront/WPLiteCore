@@ -107,18 +107,29 @@ if (!function_exists('wlc_footer')) {
 **/
 /* -------------------------------------------------------------------------- */
 if (!function_exists('wlc_get_url')) {
-    function wlc_get_url($subFolder = '') {
-        // Get the current URL
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-        $host = $_SERVER['HTTP_HOST'];
-        $path = rtrim($_SERVER['REQUEST_URI'], '/');
+    function wlc_get_url() {
+        
+        // URL variable
+        $url = site_url;
 
-        // Append the subfolder if provided
-        if (!empty($subFolder)) {
-            $path .= '/' . ltrim($subFolder, '/');
-        }
+        return $url;
 
-        return $protocol . $host . $path . '/';
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/** FUNCTION TO GET THE PAGE URL
+ * This function returns the URL of a specific page.
+ * It can be used to generate links to different pages within the project.
+**/
+if (!function_exists('wlc_page')) {
+    function wlc_page($page = '') {
+        
+        // URL variable
+        $url = site_url.'/'.$page;
+
+        return $url;
+
     }
 }
 
