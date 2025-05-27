@@ -117,6 +117,28 @@ if (!function_exists('wlc_get_url')) {
     }
 }
 
+
+/* -------------------------------------------------------------------------- */
+/**
+ * FUNCTION TO GET THE ASSET URL
+ * This function returns the URL of a specific asset file.
+ */
+if (!function_exists('wlc_get_asset')) {
+    function wlc_get_asset( $file_path = null ) {
+        
+        if (!empty($file_path)) {
+            // URL variable
+            $url = site_url .'/'. $file_path;
+        }else{
+            $url = null;
+        }
+
+        return $url;
+
+    }
+}
+
+
 /* -------------------------------------------------------------------------- */
 /** FUNCTION TO GET THE PAGE URL
  * This function returns the URL of a specific page.
