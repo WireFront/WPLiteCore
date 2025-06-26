@@ -20,7 +20,7 @@ class WPLiteCoreTest extends BaseTestCase
         WPLiteCore::reset();
         
         $instance1 = WPLiteCore::getInstance(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key',
             true
         );
@@ -33,7 +33,7 @@ class WPLiteCoreTest extends BaseTestCase
     public function testCreateNewInstance(): void
     {
         $instance1 = WPLiteCore::create(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key1',
             true
         );
@@ -64,7 +64,7 @@ class WPLiteCoreTest extends BaseTestCase
         
         // Define constants as they would be in wlc_config.php
         if (!defined('api_url')) {
-            define('api_url', 'https://apis.wirefront.net/v2');
+            define('api_url', 'https://api.example.com/v2');
         }
         if (!defined('HASH_KEY')) {
             define('HASH_KEY', 'test-secret-key');
@@ -153,14 +153,14 @@ class WPLiteCoreTest extends BaseTestCase
     public function testResetSingleton(): void
     {
         $instance1 = WPLiteCore::getInstance(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key'
         );
         
         WPLiteCore::reset();
         
         $instance2 = WPLiteCore::getInstance(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key'
         );
         
@@ -192,13 +192,13 @@ class WPLiteCoreTest extends BaseTestCase
     public function testDebugModeConfiguration(): void
     {
         $debugInstance = WPLiteCore::create(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key',
             true  // Debug mode enabled
         );
         
         $productionInstance = WPLiteCore::create(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key',
             false  // Debug mode disabled
         );
@@ -227,7 +227,7 @@ class WPLiteCoreTest extends BaseTestCase
     public function testWithoutSecretKey(): void
     {
         $instance = WPLiteCore::create(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             null,  // No secret key
             true
         );
