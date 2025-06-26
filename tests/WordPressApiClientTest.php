@@ -15,7 +15,7 @@ class WordPressApiClientTest extends BaseTestCase
     public function testClientInitialization(): void
     {
         $client = new WordPressApiClient(
-            'https://apis.wirefront.net/v2',
+            'https://api.example.com/v2',
             'test-key',
             true
         );
