@@ -1,0 +1,238 @@
+<?php
+
+/**
+ * WPLiteCore Configuration Handler
+ * 
+ * This class handles loading configuration from environment variables
+ * and provides fallback to default values or config files.
+ * 
+ * Note: This is primarily used for library development and testing.
+ * End users can simply use: WPLiteCore::create('api-url', 'secret-key')
+ */
+
+namespace WPLite\Core;
+
+class Config
+{
+    private static array $config = [];
+    private static bool $loaded = false;
+
+    /**
+     * Load configuration from environment and .env file
+     */
+    public static function load(): void
+    {
+        if (self::$loaded) {
+            return;
+        }
+
+        // Try to load .env file if it exists
+        self::loadEnvFile();
+
+        // Load configuration with fallbacks
+        self::$config = [
+            'api_url' => self::getEnv('WPLITE_API_URL', 'https://api.example.com/v2'),
+            'hash_key' => self::getEnv('WPLITE_HASH_KEY', null),
+            'site_url' => self::getEnv('WPLITE_SITE_URL', 'https://example.com'),
+            'debug' => self::getEnv('WPLITE_DEBUG', 'false') === 'true',
+            
+            // Test configuration
+            'test_post_id' => (int) self::getEnv('WPLITE_TEST_POST_ID', '32'),
+            'test_media_id' => (int) self::getEnv('WPLITE_TEST_MEDIA_ID', '41'),
+            'test_category_id' => (int) self::getEnv('WPLITE_TEST_CATEGORY_ID', '1'),
+            'test_user_id' => (int) self::getEnv('WPLITE_TEST_USER_ID', '1'),
+            'test_tag_id' => (int) self::getEnv('WPLITE_TEST_TAG_ID', '1'),
+            
+            // Additional API keys
+            'wirefront_api_key' => self::getEnv('WIREFRONT_API_KEY', null),
+        ];
+
+        // Define constants for backward compatibility
+        self::defineConstants();
+
+        self::$loaded = true;
+    }
+
+    /**
+     * Get configuration value
+     *
+     * @param string $key Configuration key
+     * @param mixed $default Default value if key not found
+     * @return mixed
+     */
+    public static function get(string $key, $default = null)
+    {
+        if (!self::$loaded) {
+            self::load();
+        }
+
+        return self::$config[$key] ?? $default;
+    }
+
+    /**
+     * Set configuration value
+     *
+     * @param string $key Configuration key
+     * @param mixed $value Configuration value
+     */
+    public static function set(string $key, $value): void
+    {
+        if (!self::$loaded) {
+            self::load();
+        }
+
+        self::$config[$key] = $value;
+    }
+
+    /**
+     * Get all configuration
+     *
+     * @return array
+     */
+    public static function all(): array
+    {
+        if (!self::$loaded) {
+            self::load();
+        }
+
+        return self::$config;
+    }
+
+    /**
+     * Check if configuration is loaded and hash key is available
+     *
+     * @return bool
+     */
+    public static function isConfigured(): bool
+    {
+        return self::get('hash_key') !== null;
+    }
+
+    /**
+     * Get hash key with validation
+     *
+     * @throws \RuntimeException If hash key is not configured
+     * @return string
+     */
+    public static function getHashKey(): string
+    {
+        $hashKey = self::get('hash_key');
+        
+        if ($hashKey === null) {
+            throw new \RuntimeException(
+                'HASH_KEY is not configured. Please set WPLITE_HASH_KEY environment variable or create a .env file.'
+            );
+        }
+
+        return $hashKey;
+    }
+
+    /**
+     * Get API URL
+     *
+     * @return string
+     */
+    public static function getApiUrl(): string
+    {
+        return self::get('api_url');
+    }
+
+    /**
+     * Get site URL
+     *
+     * @return string
+     */
+    public static function getSiteUrl(): string
+    {
+        return self::get('site_url');
+    }
+
+    /**
+     * Check if debug mode is enabled
+     *
+     * @return bool
+     */
+    public static function isDebug(): bool
+    {
+        return self::get('debug', false);
+    }
+
+    /**
+     * Load .env file if it exists
+     */
+    private static function loadEnvFile(): void
+    {
+        $envFile = __DIR__ . '/../../.env';
+        
+        if (file_exists($envFile)) {
+            $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            
+            foreach ($lines as $line) {
+                // Skip comments
+                if (strpos(trim($line), '#') === 0) {
+                    continue;
+                }
+                
+                // Parse key=value pairs
+                if (strpos($line, '=') !== false) {
+                    list($key, $value) = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value);
+                    
+                    // Remove quotes if present
+                    if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                        (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                        $value = substr($value, 1, -1);
+                    }
+                    
+                    // Set environment variable if not already set
+                    if (!isset($_ENV[$key]) && getenv($key) === false) {
+                        putenv("$key=$value");
+                        $_ENV[$key] = $value;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Get environment variable with fallback
+     *
+     * @param string $key Environment variable name
+     * @param mixed $default Default value
+     * @return mixed
+     */
+    private static function getEnv(string $key, $default = null)
+    {
+        $value = $_ENV[$key] ?? getenv($key);
+        return $value !== false ? $value : $default;
+    }
+
+    /**
+     * Define constants for backward compatibility
+     */
+    private static function defineConstants(): void
+    {
+        // Only define if not already defined
+        if (!defined('HASH_KEY') && self::$config['hash_key'] !== null) {
+            define('HASH_KEY', self::$config['hash_key']);
+        }
+        
+        if (!defined('api_url')) {
+            define('api_url', self::$config['api_url']);
+        }
+        
+        if (!defined('site_url')) {
+            define('site_url', self::$config['site_url']);
+        }
+    }
+
+    /**
+     * Reset configuration (mainly for testing)
+     */
+    public static function reset(): void
+    {
+        self::$config = [];
+        self::$loaded = false;
+    }
+}
