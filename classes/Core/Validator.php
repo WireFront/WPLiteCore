@@ -119,6 +119,9 @@ class Validator
      */
     public static function sanitizeUrl(string $url): string
     {
+        // Remove dangerous script tags and other potential XSS vectors
+        $url = strip_tags($url);
+        $url = str_replace(['<script>', '</script>', 'javascript:', 'vbscript:', 'onload=', 'onerror='], '', $url);
         return filter_var(trim($url), FILTER_SANITIZE_URL);
     }
 
