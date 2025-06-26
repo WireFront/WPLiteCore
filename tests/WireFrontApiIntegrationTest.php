@@ -5,34 +5,44 @@ namespace Tests;
 use WPLite\WPLiteCore;
 use WPLite\Api\ApiResponse;
 use WPLite\Exceptions\ApiException;
+use WPLite\Core\Config;
 
 /**
  * Integration tests using the real WireFront API
- * These tests will actually hit your API at https://apis.wirefront.net/v2
+ * These tests will actually hit your configured API endpoint
  */
 class WireFrontApiIntegrationTest extends BaseTestCase
 {
-    private string $realApiUrl = 'https://apis.wirefront.net/v2';
+    private string $realApiUrl;
     private ?string $realSecretKey = null;
 
     protected function setUp(): void
     {
         parent::setUp();
         
-        // Define required constants for the custom API
-        if (!defined('HASH_KEY')) {
-            define('HASH_KEY', '6F6$AHI.ybW!@4y-o4AR*d');
-        }
-        if (!defined('api_url')) {
-            define('api_url', 'https://apis.wirefront.net/v2');
-        }
-        if (!defined('site_url')) {
-            define('site_url', 'https://example.com');
+        // Load configuration from environment
+        Config::load();
+        
+        // Get configuration values securely
+        $this->realApiUrl = Config::getApiUrl();
+        $this->realSecretKey = Config::get('wirefront_api_key') ?? Config::get('hash_key');
+        
+        // Validate configuration
+        if (!$this->realSecretKey) {
+            $this->markTestSkipped('No API key configured. Please set WPLITE_HASH_KEY or WIREFRONT_API_KEY environment variable.');
         }
         
-        // Use real API URL and key for your custom endpoint
-        // Note: Your API uses /v2/posts instead of /wp-json/wp/v2/posts
-        $this->realSecretKey = $_ENV['WIREFRONT_API_KEY'] ?? '6F6$AHI.ybW!@4y-o4AR*d';
+        // Define constants for backward compatibility with procedural functions
+        if (!defined('HASH_KEY')) {
+            define('HASH_KEY', Config::getHashKey());
+        }
+        if (!defined('api_url')) {
+            define('api_url', Config::getApiUrl());
+        }
+        if (!defined('site_url')) {
+            define('site_url', Config::getSiteUrl());
+        }
+        
         $this->wpLite = WPLiteCore::create($this->realApiUrl, $this->realSecretKey, true);
         
         echo "\n🔧 Testing against custom WireFront API: " . $this->realApiUrl . "\n";
