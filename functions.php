@@ -12,7 +12,7 @@ function generate_jwt($options = []) {
 
     $options = array_merge([
         'key' => HASH_KEY,
-        'url' => 'https://api.wirefront.net',
+        'url' => 'https://api.example.com',
         'expire_date' => 60, // Default to 1 hour (3600 seconds)
         'hash' => 'HS512'
     ], $options);
