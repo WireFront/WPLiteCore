@@ -25,7 +25,7 @@ abstract class BaseTestCase extends TestCase
         WPLiteCore::reset();
         
         // Get test configuration
-        $this->apiUrl = $_ENV['TEST_API_URL'] ?? 'https://apis.wirefront.net/v2';
+        $this->apiUrl = $_ENV['TEST_API_URL'] ?? 'https://api.example.com/v2';
         $this->secretKey = $_ENV['TEST_SECRET_KEY'] ?? 'test-secret-key';
         
         // Initialize WPLiteCore for testing
