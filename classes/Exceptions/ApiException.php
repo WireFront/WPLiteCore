@@ -16,7 +16,7 @@ class ApiException extends WPLiteException
         int $httpStatusCode = 500,
         array $responseHeaders = [],
         array $context = [],
-        \Exception $previous = null
+        ?\Throwable $previous = null
     ) {
         $this->httpStatusCode = $httpStatusCode;
         $this->responseHeaders = $responseHeaders;
