@@ -1,15 +1,19 @@
 {
     "name": "wirefront/wplitecore",
+    "version": "1.0.0",
     "description": "A lightweight PHP core framework designed for seamless development of headless WordPress websites, leveraging the WP-JSON API for efficient, decoupled front-end and back-end integration.",
     "homepage": "https://github.com/WireFront/WPLiteCore",
     "type": "library",
     "license": "MIT",
+    "keywords": ["wordpress", "headless", "api", "framework", "cms", "rest-api"],
     "authors": [
         {
-            "name": "WireFront"
+            "name": "WireFront",
+            "homepage": "https://github.com/WireFront"
         }
     ],
     "require": {
+        "php": ">=8.0",
         "firebase/php-jwt": "^6.0"
     },
     "autoload": {
