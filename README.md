@@ -93,7 +93,7 @@ If you're contributing to WPLiteCore or need to run tests:
 
 #### 1. Clone and Install
 ```bash
-git clone this-repository
+git clone https://github.com/WireFront/WPLiteCore.git
 cd WPLiteCore
 composer install
 ```
