@@ -23,7 +23,7 @@ If you're using WPLiteCore in your project, it's very simple:
 
 ### Installation
 ```bash
-composer require your-org/wplitecore
+composer require wirefront/wplitecore
 ```
 
 ### Basic Usage
