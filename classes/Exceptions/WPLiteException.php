@@ -11,7 +11,7 @@ class WPLiteException extends Exception
 {
     protected array $context;
 
-    public function __construct(string $message = "", int $code = 0, array $context = [], Exception $previous = null)
+    public function __construct(string $message = "", int $code = 0, array $context = [], ?\Throwable $previous = null)
     {
         $this->context = $context;
         parent::__construct($message, $code, $previous);
