@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         processIsolation="false"
+         stopOnFailure="false"
+         cacheDirectory=".phpunit.cache"
+         backupGlobals="false">
+    
+    <testsuites>
+        <testsuite name="WPLiteCore">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    
+    <source>
+        <include>
+            <directory suffix=".php">classes</directory>
+        </include>
+        <exclude>
+            <directory>vendor</directory>
+            <directory>examples</directory>
+            <directory>setup-files</directory>
+        </exclude>
+    </source>
+    
+    <php>
+        <env name="TEST_API_URL" value="https://apis.wirefront.net/v2"/>
+        <env name="TEST_SECRET_KEY" value="test-secret-key"/>
+        <env name="WLC_DEBUG_MODE" value="true"/>
+    </php>
+    
+    <logging>
+        <junit outputFile="tests/results/junit.xml"/>
+        <testdoxHtml outputFile="tests/results/testdox.html"/>
+    </logging>
+</phpunit>
