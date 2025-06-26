@@ -6,7 +6,7 @@ If you're building a website or application and want to use WPLiteCore, it's ver
 
 ### Installation
 ```bash
-composer require your-org/wplitecore
+composer require wirefront/wplitecore
 ```
 
 ### Basic Usage
