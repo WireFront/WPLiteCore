@@ -16,6 +16,9 @@
         "php": ">=8.0",
         "firebase/php-jwt": "^6.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
     "autoload": {
         "psr-4": {
             "WPLite\\": "classes/"
@@ -24,6 +27,11 @@
             "functions.php",
             "router.php"
         ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
     },
     "_COMMENT": {
         "autoload": "Run `composer dump-autoload` to regenerate the autoload files.",
