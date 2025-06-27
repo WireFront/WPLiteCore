@@ -6,11 +6,12 @@ A modern PHP framework for WordPress REST API interactions with both procedural 
 
 **👤 I want to USE WPLiteCore in my project:**
 - [Installation & Basic Usage](#-quick-start-for-end-users) ← Start here
-- [API Reference](#-api-reference)
-- [Migration from Old Code](#-migration-guide)
+- [Complete API Reference](docs/USAGE.md) ← Full documentation
+- [Migration from Old Code](docs/MIGRATION_GUIDE.md)
 
 **👨‍💻 I want to CONTRIBUTE to WPLiteCore:**
 - [Development Setup](#-for-library-developers-and-contributors) ← Start here
+- [Testing Guide](docs/TESTING.md) ← Testing documentation
 - [Configuration System](#configuration-system-details)
 - [Running Tests](#running-tests)
 - [Contributing Guidelines](#contributing)
@@ -219,29 +220,29 @@ $wpLite = WPLiteCore::create(Config::getApiUrl(), Config::getHashKey());
 
 ### Running Tests
 
-#### All Tests
-```bash
-vendor/bin/phpunit
-```
+For comprehensive testing documentation, see **[📋 Testing Guide](docs/TESTING.md)**
 
-#### Specific Test Suites
+#### Quick Test Commands
 ```bash
-# Test featured image functionality
+# Run all tests
+vendor/bin/phpunit
+
+# Run tests with detailed output
+vendor/bin/phpunit --testdox
+
+# Run specific test file
 vendor/bin/phpunit tests/FeaturedImageTest.php
 
-# Test API integration (requires real API)
-vendor/bin/phpunit tests/WireFrontApiIntegrationTest.php
-
-# Test specific method
-vendor/bin/phpunit tests/FeaturedImageTest.php::testPostWithFeaturedImageOOP
+# Run specific test method
+vendor/bin/phpunit --filter "testPostWithFeaturedImageOOP"
 ```
 
-#### Test Configuration
-Tests use the `.env` configuration to:
-- Connect to real APIs for integration testing
-- Test with specific post/media IDs
-- Validate authentication and error handling
-- Test both OOP and procedural approaches
+#### Test Requirements
+- **✅ API Credentials**: Configure `.env` with real API endpoints
+- **✅ Test Data**: Ensure test post/media IDs exist in your API
+- **✅ Network Access**: Tests connect to live WordPress APIs
+
+📖 **[Complete Testing Guide →](docs/TESTING.md)** - Detailed instructions, troubleshooting, and test descriptions
 
 ### File Structure (Development)
 
@@ -251,6 +252,10 @@ WPLiteCore/
 │   ├── Api/               # API client classes
 │   ├── Core/              # Config and core functionality
 │   └── Exceptions/        # Custom exceptions
+├── docs/                  # Documentation files
+│   ├── USAGE.md          # Complete API reference 
+│   ├── TESTING.md        # Testing guide
+│   └── MIGRATION_GUIDE.md # Migration documentation
 ├── tests/                 # PHPUnit test suite
 │   ├── BaseTestCase.php   # Base test class
 │   ├── FeaturedImageTest.php # Featured image tests
@@ -388,13 +393,17 @@ $data = wlc_get_api_data([
 
 ## 🔄 Migration Guide
 
-For detailed migration from procedural to OOP approach, see [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md).
+For detailed migration from procedural to OOP approach, see **[📋 Migration Guide](docs/MIGRATION_GUIDE.md)**.
 
-## 📖 Examples
+## 📖 Documentation & Examples
 
-- [Simple Usage Examples](examples/simple_usage.php) - For end users
-- [Comprehensive OOP Examples](examples/oop_usage_examples.php) - Advanced usage
-- [USAGE.md](USAGE.md) - Quick decision guide
+| Document | Description | For |
+|----------|-------------|-----|
+| **[docs/USAGE.md](docs/USAGE.md)** | Complete API reference with examples | 👤 End Users |
+| **[docs/TESTING.md](docs/TESTING.md)** | Testing guide and test descriptions | 🔧 Contributors |
+| **[docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md)** | Upgrade from procedural to OOP | 🔄 Existing Users |
+| **[examples/simple_usage.php](examples/simple_usage.php)** | Simple usage examples | 👤 End Users |
+| **[examples/oop_usage_examples.php](examples/oop_usage_examples.php)** | Advanced OOP examples | 👤 End Users |
 
 ## 🤝 Contributing
 
