@@ -178,16 +178,14 @@ if (!function_exists('wlc_get_api_data')) {
         $url = $options['api_url'];
         $endpoint = $options['endpoint'];
 
-        // Generate the JWT token
-        $token = generate_jwt(['key' => $options['key']]);
-        $token = $token['token'];
-        
-        // Check if key is provided
+        // Check if key is provided first
         if (empty($options['key'])) {
-            return [
-                'result' => false,
-                'message' => 'Key is required'
-            ];
+            // For public APIs, no token needed
+            $token = null;
+        } else {
+            // Generate the JWT token
+            $tokenResult = generate_jwt(['key' => $options['key']]);
+            $token = isset($tokenResult['token']) ? $tokenResult['token'] : null;
         }
 
         // Check if URL and endpoint are provided
