@@ -18,19 +18,58 @@ require_once 'vendor/autoload.php';
 
 use WPLite\WPLiteCore;
 
-// Create instance with your API details
+// Option 1: With JWT authentication (for protected content)
 $wpLite = WPLiteCore::create(
     'https://your-wordpress-site.com/wp-json/wp/v2',
     'your-secret-key'
 );
 
-// Get posts
+// Option 2: Without JWT authentication (for public content)  
+$wpLite = WPLiteCore::create(
+    'https://your-wordpress-site.com/wp-json/wp/v2',
+    null  // No secret key - works for public APIs
+);
+
+// Get posts (works with or without JWT)
 $posts = $wpLite->posts()->getPosts(['per_page' => 5]);
 if ($posts->isSuccess()) {
     foreach ($posts->getItems() as $post) {
         echo $post['title']['rendered'] . "\n";
     }
 }
+```
+
+**🔓 Important**: JWT tokens are completely optional! Only use them if your WordPress API requires authentication.
+
+---
+
+## 🔐 Authentication Guide
+
+### When to Use JWT Tokens
+
+| Content Type | JWT Required? | Example |
+|--------------|---------------|---------|
+| **Public Posts** | ❌ No | Blog posts, published pages |
+| **Public Media** | ❌ No | Images, attachments in public posts |
+| **Draft Posts** | ✅ Yes | Unpublished content |
+| **Private Posts** | ✅ Yes | Password-protected content |
+| **User Data** | ✅ Yes | Author profiles, user-specific data |
+| **Comments** | ❌ Usually No | Public comments (check your API settings) |
+
+### Authentication Examples
+
+```php
+// For public WordPress sites (most common)
+$publicApi = WPLiteCore::create('https://example.com/wp-json/wp/v2', null);
+
+// For protected/private content
+$privateApi = WPLiteCore::create('https://example.com/wp-json/wp/v2', 'your-jwt-secret');
+
+// Mixed usage - different instances for different needs
+$posts = $publicApi->posts()->getPosts();        // Public posts
+$drafts = $privateApi->posts()->getPosts([        // Private drafts
+    'status' => 'draft'
+]);
 ```
 
 ---
@@ -49,14 +88,20 @@ use WPLite\WPLiteCore;
 // Method 1: Create new instance (recommended)
 $wpLite = WPLiteCore::create(
     'https://your-site.com/wp-json/wp/v2',
-    'your-secret-key',
+    'your-secret-key',  // Optional - use null for public APIs
     false  // debug mode (optional)
 );
 
-// Method 2: Singleton instance (for single API configuration)
+// Method 2: Without authentication (for public APIs)
+$wpLite = WPLiteCore::create(
+    'https://your-site.com/wp-json/wp/v2',
+    null  // No authentication required
+);
+
+// Method 3: Singleton instance (for single API configuration)
 $wpLite = WPLiteCore::getInstance(
     'https://your-site.com/wp-json/wp/v2',
-    'your-secret-key'
+    'your-secret-key'  // Optional
 );
 ```
 
@@ -314,12 +359,22 @@ For backward compatibility, all original functions are still available:
 Get a single post with all related data.
 
 ```php
+// With JWT authentication
 $result = wlc_single_post([
     'key' => 'your-secret-key',
     'api_url' => 'https://your-site.com/wp-json/wp/v2/',
     'id' => 32,                    // Post ID
     'type' => 'posts',             // Post type (posts, pages)
     'media_size' => 'medium'       // Featured image size
+]);
+
+// Without JWT authentication (for public content)
+$result = wlc_single_post([
+    'key' => null,                 // No authentication
+    'api_url' => 'https://your-site.com/wp-json/wp/v2/',
+    'id' => 32,
+    'type' => 'posts',
+    'media_size' => 'medium'
 ]);
 
 if ($result && isset($result['title'])) {
