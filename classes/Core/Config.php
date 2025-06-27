@@ -54,6 +54,15 @@ class Config
     }
 
     /**
+     * Force reload configuration (useful for testing)
+     */
+    public static function reload(): void
+    {
+        self::$loaded = false;
+        self::load();
+    }
+
+    /**
      * Get configuration value
      *
      * @param string $key Configuration key
@@ -125,6 +134,16 @@ class Config
         }
 
         return $hashKey;
+    }
+
+    /**
+     * Get hash key safely (returns null if not configured)
+     *
+     * @return string|null
+     */
+    public static function getHashKeySafe(): ?string
+    {
+        return self::get('hash_key');
     }
 
     /**
@@ -205,7 +224,13 @@ class Config
     private static function getEnv(string $key, $default = null)
     {
         $value = $_ENV[$key] ?? getenv($key);
-        return $value !== false ? $value : $default;
+        
+        // Return default if value is false (not set) or empty string
+        if ($value === false || $value === '') {
+            return $default;
+        }
+        
+        return $value;
     }
 
     /**
