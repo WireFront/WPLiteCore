@@ -33,8 +33,8 @@ class WireFrontApiIntegrationTest extends BaseTestCase
         }
         
         // Define constants for backward compatibility with procedural functions
-        if (!defined('HASH_KEY')) {
-            define('HASH_KEY', Config::getHashKey());
+        if (!defined('HASH_KEY') && $this->realSecretKey) {
+            define('HASH_KEY', $this->realSecretKey);
         }
         if (!defined('api_url')) {
             define('api_url', Config::getApiUrl());
