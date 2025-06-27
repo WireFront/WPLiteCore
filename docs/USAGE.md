@@ -47,14 +47,19 @@ if ($posts->isSuccess()) {
 
 ### When to Use JWT Tokens
 
-| Content Type | JWT Required? | Example |
-|--------------|---------------|---------|
-| **Public Posts** | ❌ No | Blog posts, published pages |
-| **Public Media** | ❌ No | Images, attachments in public posts |
-| **Draft Posts** | ✅ Yes | Unpublished content |
-| **Private Posts** | ✅ Yes | Password-protected content |
-| **User Data** | ✅ Yes | Author profiles, user-specific data |
-| **Comments** | ❌ Usually No | Public comments (check your API settings) |
+| Content Type | JWT Required? | Config Hash Key Needed? | Example |
+|--------------|---------------|------------------------|---------|
+| **Public Posts** | ❌ No | ❌ No | Blog posts, published pages |
+| **Public Media** | ❌ No | ❌ No | Images, attachments in public posts |
+| **Draft Posts** | ✅ Yes | ✅ Yes | Unpublished content |
+| **Private Posts** | ✅ Yes | ✅ Yes | Password-protected content |
+| **User Data** | ✅ Yes | ✅ Yes | Author profiles, user-specific data |
+| **Comments** | ❌ Usually No | ❌ No | Public comments (check your API settings) |
+
+**📝 Important Notes:**
+- **End Users**: Don't need Config class or `.env` files - just pass values directly to `WPLiteCore::create()`
+- **Library Developers**: Use Config class and `.env` files for testing the library itself
+- **Hash Keys in Config**: Only needed when testing library functionality, not for end user applications
 
 ### Authentication Examples
 
@@ -71,6 +76,28 @@ $drafts = $privateApi->posts()->getPosts([        // Private drafts
     'status' => 'draft'
 ]);
 ```
+
+### 🔧 Config Class (For Library Developers Only)
+
+The `Config` class is used internally for testing the WPLiteCore library itself. **End users don't need it!**
+
+```php
+use WPLite\Core\Config;
+
+// ✅ For library developers testing
+Config::load();                        // Load from .env file
+$apiUrl = Config::getApiUrl();         // Get test API URL
+$hashKey = Config::getHashKeySafe();   // Get hash key safely (returns null if not set)
+
+// ❌ End users don't need this - just use:
+$wpLite = WPLiteCore::create('your-api-url', 'your-key-or-null');
+```
+
+**Config Methods:**
+- `Config::getHashKeySafe()` - Returns hash key or null (safe)
+- `Config::getHashKey()` - Returns hash key or throws exception (for testing)
+- `Config::isConfigured()` - Checks if hash key is available
+- `Config::getApiUrl()` - Gets API URL (with fallback to default)
 
 ---
 
