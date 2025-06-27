@@ -34,13 +34,19 @@ require_once 'vendor/autoload.php';
 
 use WPLite\WPLiteCore;
 
-// Create instance with your API details
+// Option 1: With JWT authentication (for protected content)
 $wpLite = WPLiteCore::create(
     'https://your-wordpress-site.com/wp-json/wp/v2',
     'your-secret-key'
 );
 
-// Get posts
+// Option 2: Without JWT authentication (for public content)
+$wpLite = WPLiteCore::create(
+    'https://your-wordpress-site.com/wp-json/wp/v2',
+    null  // No secret key needed for public APIs
+);
+
+// Get posts (works with or without JWT)
 $posts = $wpLite->posts()->getPosts(['per_page' => 5]);
 if ($posts->isSuccess()) {
     foreach ($posts->getItems() as $post) {
@@ -60,6 +66,14 @@ if ($post->isSuccess()) {
     }
 }
 ```
+
+**🔓 JWT Authentication is Optional!**
+
+- **Public content**: Use `null` as the secret key - no authentication needed
+- **Protected content**: Provide your JWT secret key for authenticated requests  
+- **Mixed usage**: You can create multiple instances with different authentication levels
+
+WPLiteCore automatically handles authentication based on whether you provide a secret key or not.
 
 ### Procedural Functions (Backward Compatibility)
 ```php
