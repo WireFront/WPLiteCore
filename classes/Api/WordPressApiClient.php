@@ -4,6 +4,7 @@ namespace WPLite\Api;
 
 use WPLite\Core\Validator;
 use WPLite\Core\ErrorHandler;
+use WPLite\Core\Security as SecurityHelper;
 use WPLite\Exceptions\ApiException;
 use WPLite\Exceptions\ValidationException;
 use WPLite\Exceptions\ConfigException;
@@ -148,17 +149,38 @@ class WordPressApiClient
     {
         $validator = new Validator();
         
+        // Validate endpoint
         $validator
             ->required($endpoint, 'endpoint')
-            ->length($endpoint, 'endpoint', 1, 100)
-            ->array($parameters, 'parameters');
+            ->length($endpoint, 'endpoint', 1, 100);
 
+        // Sanitize and validate endpoint
+        $sanitizedEndpoint = Validator::sanitizeInput($endpoint, 'endpoint');
+        
+        // Validate parameters array
+        $validator->array($parameters, 'parameters');
+
+        // Comprehensive parameter validation
+        $sanitizedParams = Validator::sanitizeInput($parameters, 'api_params');
+        
+        // Additional validation for critical parameters
         if (isset($parameters['per_page'])) {
-            $validator->integer($parameters['per_page'], 'per_page');
+            $perPage = Validator::sanitizeInt($parameters['per_page']);
+            if ($perPage < 1 || $perPage > 100) {
+                throw new ValidationException('per_page must be between 1 and 100');
+            }
         }
         
         if (isset($parameters['page'])) {
-            $validator->integer($parameters['page'], 'page');
+            $page = Validator::sanitizeInt($parameters['page']);
+            if ($page < 1) {
+                throw new ValidationException('page must be greater than 0');
+            }
+        }
+
+        // Rate limiting check
+        if (!SecurityHelper::checkRateLimit($this->apiUrl, 100, 3600)) {
+            throw new ApiException('Rate limit exceeded. Please try again later.', 0, 429);
         }
 
         $validator->validate();
@@ -169,24 +191,42 @@ class WordPressApiClient
      */
     private function buildUrl(string $endpoint, array $parameters, ?string $target): string
     {
+        // Sanitize endpoint
+        $endpoint = Validator::sanitizeInput($endpoint, 'endpoint');
+        
         $url = $this->apiUrl . '/' . ltrim($endpoint, '/');
         
         if ($target !== null) {
+            // Sanitize target (could be ID or slug)
+            $target = Validator::sanitizeString($target);
             $url .= '/' . $target;
         }
 
-        // Handle parameters
+        // Handle parameters with comprehensive sanitization
         if (!empty($parameters)) {
+            // Sanitize all parameters
+            $parameters = Validator::sanitizeInput($parameters, 'api_params');
+            
             // If slug is provided, use only slug parameter
             if (isset($parameters['slug'])) {
                 $parameters = ['slug' => $parameters['slug']];
             } else {
-                // Set defaults for pagination
+                // Set safe defaults for pagination
                 $parameters = array_merge(['per_page' => 10, 'page' => 1], $parameters);
+                
+                // Enforce maximum per_page limit
+                if (isset($parameters['per_page']) && $parameters['per_page'] > 100) {
+                    $parameters['per_page'] = 100;
+                }
             }
 
             $queryString = http_build_query($parameters);
             $url .= (strpos($url, '?') !== false ? '&' : '?') . $queryString;
+        }
+
+        // Final URL validation
+        if (!Validator::validateSecureUrl($url)) {
+            throw new ApiException('Invalid or unsafe URL generated');
         }
 
         return $url;
@@ -223,28 +263,41 @@ class WordPressApiClient
             $headers[] = 'Authorization: Bearer ' . $token;
         }
 
-        curl_setopt_array($ch, [
+        // Get secure options but validate them first
+        $secureOptions = SecurityHelper::getSecureCurlOptions();
+        
+        // Base cURL options
+        $baseOptions = [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => true,
-            CURLOPT_TIMEOUT => $this->timeout,
-            CURLOPT_CONNECTTIMEOUT => $this->connectTimeout,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 3,
             CURLOPT_HTTPHEADER => $headers
-        ]);
+        ];
+        
+        // Merge options carefully
+        $allOptions = $baseOptions;
+        foreach ($secureOptions as $option => $value) {
+            $allOptions[$option] = $value;
+        }
+        
+        curl_setopt_array($ch, $allOptions);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $error = curl_error($ch);
+        $errno = curl_errno($ch);
         
         curl_close($ch);
 
-        if ($response === false || !empty($error)) {
-            throw new ApiException('cURL request failed: ' . $error, 0, 500, [], ['url' => $url]);
+        if ($response === false || $errno !== 0) {
+            throw new ApiException(
+                'cURL request failed: ' . ($error ?: 'Unknown error'),
+                $errno,
+                500,
+                [],
+                ['url' => $url, 'curl_error' => $error, 'curl_errno' => $errno]
+            );
         }
 
         if ($httpCode >= 400) {
