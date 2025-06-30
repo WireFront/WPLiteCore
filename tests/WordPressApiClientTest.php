@@ -47,7 +47,7 @@ class WordPressApiClientTest extends BaseTestCase
 
     public function testGetDataWithInvalidEndpoint(): void
     {
-        $this->expectException(ApiException::class);
+        $this->expectException(ValidationException::class);
         
         $response = $this->apiClient->getData('invalid-endpoint');
     }
