@@ -36,6 +36,20 @@ class Config
             'site_url' => self::getEnv('WPLITE_SITE_URL', 'https://example.com'),
             'debug' => self::getEnv('WPLITE_DEBUG', 'false') === 'true',
             
+            // Cache configuration
+            'cache_enabled' => self::getEnv('WPLITE_CACHE_ENABLED', self::getConstant('WLC_CACHE_ENABLED', true)),
+            'cache_ttl' => (int) self::getEnv('WPLITE_CACHE_TTL', self::getConstant('WLC_CACHE_TTL', 3600)),
+            'cache_dir' => self::getEnv('WPLITE_CACHE_DIR', self::getConstant('WLC_CACHE_DIR', null)),
+            'cache_ttl_posts' => (int) self::getEnv('WPLITE_CACHE_TTL_POSTS', self::getConstant('WLC_CACHE_TTL_POSTS', 1800)),
+            'cache_ttl_pages' => (int) self::getEnv('WPLITE_CACHE_TTL_PAGES', self::getConstant('WLC_CACHE_TTL_PAGES', 7200)),
+            'cache_ttl_media' => (int) self::getEnv('WPLITE_CACHE_TTL_MEDIA', self::getConstant('WLC_CACHE_TTL_MEDIA', 86400)),
+            'cache_ttl_categories' => (int) self::getEnv('WPLITE_CACHE_TTL_CATEGORIES', self::getConstant('WLC_CACHE_TTL_CATEGORIES', 3600)),
+            'cache_ttl_tags' => (int) self::getEnv('WPLITE_CACHE_TTL_TAGS', self::getConstant('WLC_CACHE_TTL_TAGS', 3600)),
+            'cache_ttl_users' => (int) self::getEnv('WPLITE_CACHE_TTL_USERS', self::getConstant('WLC_CACHE_TTL_USERS', 7200)),
+            'cache_ttl_comments' => (int) self::getEnv('WPLITE_CACHE_TTL_COMMENTS', self::getConstant('WLC_CACHE_TTL_COMMENTS', 900)),
+            'cache_auto_cleanup' => self::getEnv('WPLITE_CACHE_AUTO_CLEANUP', self::getConstant('WLC_CACHE_AUTO_CLEANUP', true)),
+            'cache_cleanup_probability' => (int) self::getEnv('WPLITE_CACHE_CLEANUP_PROBABILITY', self::getConstant('WLC_CACHE_CLEANUP_PROBABILITY', 10)),
+            
             // Test configuration
             'test_post_id' => (int) self::getEnv('WPLITE_TEST_POST_ID', '32'),
             'test_media_id' => (int) self::getEnv('WPLITE_TEST_MEDIA_ID', '41'),
@@ -177,6 +191,77 @@ class Config
     }
 
     /**
+     * Check if caching is enabled
+     *
+     * @return bool
+     */
+    public static function isCacheEnabled(): bool
+    {
+        return (bool) self::get('cache_enabled', true);
+    }
+
+    /**
+     * Get cache TTL for specific endpoint type
+     *
+     * @param string $endpoint Endpoint type (posts, pages, media, etc.)
+     * @return int TTL in seconds
+     */
+    public static function getCacheTtl(string $endpoint = ''): int
+    {
+        $endpoint = strtolower($endpoint);
+        
+        // Check for specific endpoint TTL
+        switch ($endpoint) {
+            case 'posts':
+                return (int) self::get('cache_ttl_posts', 1800);
+            case 'pages':
+                return (int) self::get('cache_ttl_pages', 7200);
+            case 'media':
+                return (int) self::get('cache_ttl_media', 86400);
+            case 'categories':
+                return (int) self::get('cache_ttl_categories', 3600);
+            case 'tags':
+                return (int) self::get('cache_ttl_tags', 3600);
+            case 'users':
+                return (int) self::get('cache_ttl_users', 7200);
+            case 'comments':
+                return (int) self::get('cache_ttl_comments', 900);
+            default:
+                return (int) self::get('cache_ttl', 3600);
+        }
+    }
+
+    /**
+     * Get cache directory
+     *
+     * @return string|null
+     */
+    public static function getCacheDir(): ?string
+    {
+        return self::get('cache_dir');
+    }
+
+    /**
+     * Check if auto cleanup is enabled
+     *
+     * @return bool
+     */
+    public static function isCacheAutoCleanupEnabled(): bool
+    {
+        return (bool) self::get('cache_auto_cleanup', true);
+    }
+
+    /**
+     * Get cache cleanup probability percentage
+     *
+     * @return int
+     */
+    public static function getCacheCleanupProbability(): int
+    {
+        return (int) self::get('cache_cleanup_probability', 10);
+    }
+
+    /**
      * Load .env file if it exists
      */
     private static function loadEnvFile(): void
@@ -231,6 +316,18 @@ class Config
         }
         
         return $value;
+    }
+
+    /**
+     * Get constant value with fallback
+     *
+     * @param string $name Constant name
+     * @param mixed $default Default value
+     * @return mixed
+     */
+    private static function getConstant(string $name, $default = null)
+    {
+        return defined($name) ? constant($name) : $default;
     }
 
     /**
