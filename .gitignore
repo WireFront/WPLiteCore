@@ -1,2 +1,96 @@
+# Dependencies
 /vendor/
+
+# Composer
 composer.lock
+
+# Test results and reports
+/tests/results/
+*.junit.xml
+*.xml
+*.html
+/coverage/
+
+# PHPUnit cache and results
+.phpunit.cache/
+phpunit.cache
+.phpunit.result.cache
+
+# But keep important XML files
+!/composer.json
+!/phpunit.xml
+
+# Temporary development files
+*_test.php
+quick_*.php
+temp_*.php
+dev_*.php
+test_*.php
+
+# But keep the official test suite
+!/tests/
+!/tests/*.php
+
+# Environment and configuration
+.env
+.env.local
+.env.production
+.env.staging
+config/local.php
+local_config.php
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+error.log
+access.log
+
+# Cache files
+cache/
+tmp/
+temp/
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# WordPress specific (if applicable)
+wp-config-local.php
+wp-content/uploads/
+wp-content/cache/
+
+# Local development
+local/
+*.local
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Documentation builds (if you add automated docs)
+docs/build/
+docs/_build/
+
+# Package files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
