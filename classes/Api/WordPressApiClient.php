@@ -5,6 +5,8 @@ namespace WPLite\Api;
 use WPLite\Core\Validator;
 use WPLite\Core\ErrorHandler;
 use WPLite\Core\Security as SecurityHelper;
+use WPLite\Core\Config;
+use WPLite\Core\Cache;
 use WPLite\Exceptions\ApiException;
 use WPLite\Exceptions\ValidationException;
 use WPLite\Exceptions\ConfigException;
@@ -20,6 +22,8 @@ class WordPressApiClient
     private ErrorHandler $errorHandler;
     private int $timeout;
     private int $connectTimeout;
+    private Cache $cache;
+    private bool $cacheEnabled;
 
     public function __construct(
         string $apiUrl,
@@ -33,6 +37,49 @@ class WordPressApiClient
         $this->errorHandler = new ErrorHandler($debugMode);
         $this->timeout = $timeout;
         $this->connectTimeout = $connectTimeout;
+        
+        // Initialize caching
+        $this->initializeCache();
+    }
+
+    /**
+     * Initialize cache system
+     */
+    private function initializeCache(): void
+    {
+        // Load configuration
+        Config::load();
+        
+        $this->cacheEnabled = Config::isCacheEnabled();
+        
+        if ($this->cacheEnabled) {
+            $this->cache = new Cache(
+                Config::getCacheDir(),
+                Config::getCacheTtl(),
+                $this->cacheEnabled
+            );
+            
+            // Run cleanup with probability
+            if (Config::isCacheAutoCleanupEnabled()) {
+                $this->runCleanupWithProbability();
+            }
+        }
+    }
+
+    /**
+     * Run cache cleanup with configured probability
+     */
+    private function runCleanupWithProbability(): void
+    {
+        $probability = Config::getCacheCleanupProbability();
+        
+        if (mt_rand(1, 100) <= $probability) {
+            try {
+                $this->cache->cleanup();
+            } catch (\Throwable $e) {
+                // Ignore cleanup errors to not break the main functionality
+            }
+        }
     }
 
     /**
@@ -41,6 +88,7 @@ class WordPressApiClient
      * @param string $endpoint API endpoint (posts, pages, users, etc.)
      * @param array $parameters Query parameters
      * @param string|null $target Specific target (ID or slug)
+     * @param bool $useCache Whether to use caching for this request
      * @return ApiResponse
      * @throws ValidationException
      * @throws ApiException
@@ -48,11 +96,22 @@ class WordPressApiClient
     public function getData(
         string $endpoint,
         array $parameters = [],
-        ?string $target = null
+        ?string $target = null,
+        bool $useCache = true
     ): ApiResponse {
         try {
             // Validate inputs
             $this->validateInputs($endpoint, $parameters);
+
+            // Check cache first if enabled and useCache is true
+            if ($this->cacheEnabled && $useCache && isset($this->cache)) {
+                $cacheKey = Cache::generateApiCacheKey($endpoint, $parameters, $target);
+                $cachedResponse = $this->cache->get($cacheKey);
+                
+                if ($cachedResponse !== null) {
+                    return $this->deserializeApiResponse($cachedResponse);
+                }
+            }
 
             // Build request URL
             $url = $this->buildUrl($endpoint, $parameters, $target);
@@ -64,7 +123,14 @@ class WordPressApiClient
             $response = $this->makeRequest($url, $token);
 
             // Parse and return response
-            return $this->parseResponse($response, $parameters);
+            $apiResponse = $this->parseResponse($response, $parameters);
+
+            // Store in cache if enabled and useCache is true
+            if ($this->cacheEnabled && $useCache && isset($this->cache)) {
+                $this->cacheApiResponse($endpoint, $parameters, $target, $apiResponse);
+            }
+
+            return $apiResponse;
 
         } catch (ValidationException | ApiException $e) {
             throw $e;
@@ -466,5 +532,132 @@ class WordPressApiClient
         }
 
         return null;
+    }
+
+    /**
+     * Cache API response
+     */
+    private function cacheApiResponse(string $endpoint, array $parameters, ?string $target, ApiResponse $response): void
+    {
+        if (!$this->cacheEnabled || !isset($this->cache)) {
+            return;
+        }
+
+        try {
+            $cacheKey = Cache::generateApiCacheKey($endpoint, $parameters, $target);
+            $ttl = Config::getCacheTtl($endpoint);
+            
+            // Serialize the response data for caching
+            $cacheData = $this->serializeApiResponse($response);
+            
+            $this->cache->set($cacheKey, $cacheData, $ttl);
+        } catch (\Throwable $e) {
+            // Ignore caching errors to not break the main functionality
+        }
+    }
+
+    /**
+     * Serialize API response for caching
+     */
+    private function serializeApiResponse(ApiResponse $response): array
+    {
+        return [
+            'success' => $response->isSuccess(),
+            'data' => $response->getData(),
+            'total_posts' => $response->getTotalPosts(),
+            'total_pages' => $response->getTotalPages(),
+            'error_message' => $response->getErrorMessage(),
+            'error_code' => $response->getErrorCode(),
+            'http_code' => $response->getHttpCode(),
+            'headers' => $response->getHeaders(),
+            'debug_info' => $response->getDebugInfo(),
+            'cached_at' => time()
+        ];
+    }
+
+    /**
+     * Deserialize cached API response data
+     */
+    private function deserializeApiResponse(array $cachedData): ApiResponse
+    {
+        return new ApiResponse(
+            $cachedData['success'] ?? false,
+            $cachedData['data'] ?? null,
+            $cachedData['total_posts'] ?? 0,
+            $cachedData['total_pages'] ?? 0,
+            $cachedData['error_message'] ?? null,
+            $cachedData['error_code'] ?? 0,
+            $cachedData['http_code'] ?? 200,
+            $cachedData['headers'] ?? [],
+            array_merge($cachedData['debug_info'] ?? [], [
+                'from_cache' => true,
+                'cached_at' => $cachedData['cached_at'] ?? null
+            ])
+        );
+    }
+
+    /**
+     * Clear cache for specific endpoint
+     */
+    public function clearCache(string $endpoint = '', array $parameters = [], ?string $target = null): bool
+    {
+        if (!$this->cacheEnabled || !isset($this->cache)) {
+            return false;
+        }
+
+        if (empty($endpoint)) {
+            // Clear all cache
+            return $this->cache->clear();
+        }
+
+        // Clear specific cache entry
+        $cacheKey = Cache::generateApiCacheKey($endpoint, $parameters, $target);
+        return $this->cache->delete($cacheKey);
+    }
+
+    /**
+     * Get cache statistics
+     */
+    public function getCacheStats(): array
+    {
+        if (!$this->cacheEnabled || !isset($this->cache)) {
+            return ['enabled' => false];
+        }
+
+        return $this->cache->getStats();
+    }
+
+    /**
+     * Enable or disable caching
+     */
+    public function setCacheEnabled(bool $enabled): self
+    {
+        $this->cacheEnabled = $enabled;
+        
+        if (isset($this->cache)) {
+            $this->cache->setEnabled($enabled);
+        }
+        
+        return $this;
+    }
+
+    /**
+     * Check if caching is enabled
+     */
+    public function isCacheEnabled(): bool
+    {
+        return $this->cacheEnabled && isset($this->cache);
+    }
+
+    /**
+     * Manual cache cleanup
+     */
+    public function cleanupCache(): int
+    {
+        if (!$this->cacheEnabled || !isset($this->cache)) {
+            return 0;
+        }
+
+        return $this->cache->cleanup();
     }
 }
