@@ -15,8 +15,33 @@ if (!file_exists('wlc_config.php')) {
     include_once 'wlc_config.php';
 }
 
-// Require the autoload file for the project
-require_once __DIR__ . '/../vendor/autoload.php';
+// Only include autoloader if WPLite classes are not already available
+if (!class_exists('WPLite\WPLiteCore')) {
+    // Try to find the appropriate autoloader
+    $possibleAutoloaders = [
+        __DIR__ . '/../vendor/autoload.php',                 // Package standalone
+        __DIR__ . '/../../../../autoload.php',               // Package installed via Composer
+        __DIR__ . '/../../../../../autoload.php',            // Different nesting level
+        getcwd() . '/vendor/autoload.php',                   // Main project autoloader
+    ];
+    
+    $autoloaderFound = false;
+    foreach ($possibleAutoloaders as $autoloader) {
+        if (file_exists($autoloader)) {
+            require_once $autoloader;
+            $autoloaderFound = true;
+            break;
+        }
+    }
+    
+    // If no autoloader found and classes still not available, show helpful error
+    if (!$autoloaderFound || !class_exists('WPLite\WPLiteCore')) {
+        throw new Exception(
+            'WPLiteCore autoloader not found. Please ensure Composer autoload is properly configured. ' .
+            'Expected WPLite\WPLiteCore class to be available.'
+        );
+    }
+}
 
 // Include cached router functionality
 require_once __DIR__ . '/../cached_router.php';
