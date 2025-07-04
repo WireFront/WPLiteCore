@@ -2,6 +2,46 @@
 
 All notable changes to WPLiteCore will be documented in this file.
 
+## [2.0.1] - 2025-07-05
+
+### 🐛 Bug Fixes
+- **Autoloader Fatal Error Fix**: Resolved critical fatal error when including WPLiteCore files in Composer-managed projects
+- **Smart Autoloader Detection**: Replaced hardcoded `vendor/autoload.php` paths with intelligent autoloader detection
+- **Composer Package Compatibility**: Fixed compatibility issues when WPLiteCore is installed as a Composer dependency
+
+### 🔧 Technical Improvements
+- **Conditional Class Loading**: Added class existence checks before attempting to load autoloaders
+- **Multiple Autoloader Paths**: Support for various installation scenarios (standalone, Composer package, different nesting levels)
+- **Graceful Error Handling**: Improved error messages when autoloaders cannot be found
+- **Cross-Environment Support**: Enhanced compatibility between standalone and Composer-managed environments
+
+### 📁 Files Modified
+- `cached_router.php` - Smart autoloader detection for cached routing functionality
+- `cache_manager.php` - Conditional autoloader for cache management script
+- `bin/cache_manager.php` - CLI cache manager with proper autoloader detection
+- `setup-files/routes.php` - Setup routes file with autoloader fix
+- `setup-files/routes_with_cache.php` - Cached routes setup with autoloader fix
+
+### 🚨 Critical Fix
+This patch resolves the fatal error:
+```
+Fatal error: Failed opening required '/path/to/project/vendor/wirefront/wplitecore/vendor/autoload.php'
+```
+
+This error occurred when WPLiteCore was installed via Composer in existing projects that already had their own autoloader configured.
+
+### 🧪 Testing
+- Comprehensive test coverage for autoloader scenarios
+- Validated in both standalone and Composer-managed environments
+- Confirmed backward compatibility with existing installations
+
+### 💡 Impact
+- **Before**: Fatal errors when including WPLiteCore files in Composer projects
+- **After**: Seamless integration in any PHP project environment
+- **Compatibility**: Works in standalone installations and as Composer dependencies
+
+---
+
 ## [2.0.0] - 2025-07-02
 
 ### 🚀 Major Changes
